@@ -145,11 +145,8 @@ class DischargeCalculator:
                             ec="#00ffcc",
                         )
                 else:  # Surface Velocity Method
-                    surf_vel = (
-                        self.discharges[-1] / sum(self.areas)
-                        if sum(self.areas) > 0
-                        else 0
-                    )
+                    # Use the input surface velocity directly
+                    surf_vel = st.session_state.get("surf_vel", 0)
                     if i == 0:
                         ax.arrow(
                             x,
@@ -189,88 +186,144 @@ class DischargeCalculator:
     def calculate_0_6y_method(self, n_points: int):
         total_q = 0
         st.subheader("0.6Y Method Measurements")
+        
+        # Create containers for section data
+        section_areas = []
+        section_velocities = []
+        section_discharges = []
+        
         for i in range(n_points):
+            st.write(f"--- Measurement Point {i+1} ---")
             width, depth1, depth2 = self.get_measurements(i + 1)
+            
+            # Get velocities for this section with unique keys
             col1, col2 = st.columns(2)
             with col1:
                 vel1 = st.number_input(
                     "Velocity at 0.6Y depth, first point (ft/s)",
                     min_value=0.0,
-                    key=f"06y_vel1_{i}",
+                    key=f"06y_vel1_point{i+1}",  # Unique key for each point
                 )
             with col2:
                 vel2 = st.number_input(
                     "Velocity at 0.6Y depth, second point (ft/s)",
                     min_value=0.0,
-                    key=f"06y_vel2_{i}",
+                    key=f"06y_vel2_point{i+1}",  # Unique key for each point
                 )
-
-            self.velocities.append((vel1, vel2))
-            # Area * Average Velocity
+            
+            # Calculate section area
             area = self.calc_area(width, depth1, depth2)
+            section_areas.append(area)
+            
+            # Calculate average velocity for this section
             avg_velocity = (vel1 + vel2) / 2
-            q = area * avg_velocity
-            total_q += q
-            self.discharges.append(total_q)
-            st.info(f"Current discharge (0.6Y): {round(total_q, 3)} cusecs")
-
+            section_velocities.append(avg_velocity)
+            
+            # Calculate discharge for this section
+            section_q = area * avg_velocity
+            section_discharges.append(section_q)
+            
+            # Update total discharge
+            total_q += section_q
+            
+            # Display section information
+            st.info(f"Section {i+1} Results:")
+            st.info(f"  Area: {round(area, 3)} sq ft")
+            st.info(f"  Average velocity: {round(avg_velocity, 3)} ft/s")
+            st.info(f"  Section discharge: {round(section_q, 3)} cusecs")
+            st.info(f"Total discharge so far: {round(total_q, 3)} cusecs")
+        
+        # Store values for plotting
+        self.areas = section_areas
+        self.velocities = [(v1, v2) for v1, v2 in zip(section_velocities, section_velocities)]
+        self.discharges = [total_q]
+        
         self.plot_schematic("0.6Y Method")
         return total_q
 
     def calculate_0_8y_0_2y_method(self, n_points: int):
         total_q = 0
         st.subheader("0.8Y/0.2Y Method Measurements")
+        
+        # Create containers for section data
+        section_areas = []
+        section_velocities = []
+        section_discharges = []
+        
         for i in range(n_points):
+            st.write(f"--- Measurement Point {i+1} ---")
             width, depth1, depth2 = self.get_measurements(i + 1)
+            
+            # Get velocities at 0.8Y depth with unique keys
             st.write("Velocity measurements at 0.8Y depth:")
             col1, col2 = st.columns(2)
             with col1:
                 vel_08_1 = st.number_input(
                     "Velocity at 0.8Y depth, first point (ft/s)",
                     min_value=0.0,
-                    key=f"08y_vel1_{i}",
+                    key=f"08y_vel1_point{i+1}",  # Unique key for each point
                 )
             with col2:
                 vel_08_2 = st.number_input(
                     "Velocity at 0.8Y depth, second point (ft/s)",
                     min_value=0.0,
-                    key=f"08y_vel2_{i}",
+                    key=f"08y_vel2_point{i+1}",  # Unique key for each point
                 )
 
+            # Get velocities at 0.2Y depth with unique keys
             st.write("Velocity measurements at 0.2Y depth:")
             col3, col4 = st.columns(2)
             with col3:
                 vel_02_1 = st.number_input(
                     "Velocity at 0.2Y depth, first point (ft/s)",
                     min_value=0.0,
-                    key=f"02y_vel1_{i}",
+                    key=f"02y_vel1_point{i+1}",  # Unique key for each point
                 )
             with col4:
                 vel_02_2 = st.number_input(
                     "Velocity at 0.2Y depth, second point (ft/s)",
                     min_value=0.0,
-                    key=f"02y_vel2_{i}",
+                    key=f"02y_vel2_point{i+1}",  # Unique key for each point
                 )
 
-            self.velocities.append((vel_08_1, vel_08_2, vel_02_1, vel_02_2))
-
-            # Calculate average velocity using 0.8Y and 0.2Y method
+            # Calculate section area
+            area = self.calc_area(width, depth1, depth2)
+            section_areas.append(area)
+            
+            # Calculate average velocities
             avg_vel_08 = (vel_08_1 + vel_08_2) / 2  # Average at 0.8Y
             avg_vel_02 = (vel_02_1 + vel_02_2) / 2  # Average at 0.2Y
             avg_velocity = (avg_vel_08 + avg_vel_02) / 2  # Final average velocity
-
-            # Calculate discharge
-            area = self.calc_area(width, depth1, depth2)
-            q = area * avg_velocity
-            total_q += q
-            self.discharges.append(total_q)
-            st.info(f"Current discharge (0.8Y/0.2Y): {round(total_q, 4)} cusecs")
-
+            section_velocities.append((vel_08_1, vel_08_2, vel_02_1, vel_02_2))
+            
+            # Calculate discharge for this section
+            section_q = area * avg_velocity
+            section_discharges.append(section_q)
+            
+            # Update total discharge
+            total_q += section_q
+            
+            # Display section information
+            st.info(f"Section {i+1} Results:")
+            st.info(f"  Area: {round(area, 3)} sq ft")
+            st.info(f"  Average velocity at 0.8Y: {round(avg_vel_08, 3)} ft/s")
+            st.info(f"  Average velocity at 0.2Y: {round(avg_vel_02, 3)} ft/s")
+            st.info(f"  Final average velocity: {round(avg_velocity, 3)} ft/s")
+            st.info(f"  Section discharge: {round(section_q, 3)} cusecs")
+            st.info(f"Total discharge so far: {round(total_q, 3)} cusecs")
+        
+        # Store values for plotting
+        self.areas = section_areas
+        self.velocities = section_velocities
+        self.discharges = [total_q]
+        
         self.plot_schematic("0.8Y/0.2Y Method")
         return total_q
 
     def calculate_surface_velocity_method(self, n_points: int):
         st.subheader("Surface Velocity Method Measurements")
+        
+        # Get surface velocity and conversion factor first
         col1, col2 = st.columns(2)
         with col1:
             conv_factor = st.number_input(
@@ -285,21 +338,40 @@ class DischargeCalculator:
                 "Measured surface velocity (ft/s)", min_value=0.0, key="surf_vel"
             )
 
-        # First calculate total area
-        total_area = 0
+        # Create containers for section data
+        section_areas = []
+        section_discharges = []
+        total_q = 0
+        
+        # Calculate areas and discharges for each section
         for i in range(n_points):
+            st.write(f"--- Measurement Point {i+1} ---")
             width, depth1, depth2 = self.get_measurements(i + 1)
+            
+            # Calculate section area
             area = self.calc_area(width, depth1, depth2)
-            self.areas.append(area)
-            total_area += area
-            st.info(f"Section {i+1} area: {round(area, 3)} sq ft")
-
-        # Then calculate total discharge using total area
-        total_q = conv_factor * total_area * surf_vel
-        self.discharges.append(total_q)
-        st.success(f"Total area: {round(total_area, 3)} sq ft")
-        st.success(f"Total discharge: {round(total_q, 3)} cusecs")
-
+            section_areas.append(area)
+            
+            # Calculate section discharge
+            section_q = conv_factor * area * surf_vel
+            section_discharges.append(section_q)
+            
+            # Update total discharge
+            total_q += section_q
+            
+            # Display section information
+            st.info(f"Section {i+1} Results:")
+            st.info(f"  Area: {round(area, 3)} sq ft")
+            st.info(f"  Surface velocity: {round(surf_vel, 3)} ft/s")
+            st.info(f"  Conversion factor: {round(conv_factor, 3)}")
+            st.info(f"  Section discharge: {round(section_q, 3)} cusecs")
+            st.info(f"Total discharge so far: {round(total_q, 3)} cusecs")
+        
+        # Store values for plotting
+        self.areas = section_areas
+        self.velocities = [(surf_vel, surf_vel) for _ in range(n_points)]  # Store surface velocity for each section
+        self.discharges = [total_q]
+        
         self.plot_schematic("Surface Velocity Method")
         return total_q
 
