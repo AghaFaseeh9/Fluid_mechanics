@@ -320,7 +320,7 @@ def main():
     calculator = DischargeCalculator()
 
     # Clear any previous session state when switching methods
-    if "current_method" not in st.session_state:
+    if 'current_method' not in st.session_state:
         st.session_state.current_method = method
     elif st.session_state.current_method != method:
         calculator.reset()
